@@ -14,6 +14,7 @@ def CheckExitCommand(input_str: str) -> None:
 SHIFTS = ["morning", "afternoon", "evening"]
 MIN_EMPLOYEES_PER_SHIFT = 2
 MAX_DAYS_PER_EMPLOYEE = 5
+MAX_ASSIGNMENT_PASSES = 3
 
 
 def GetShiftPriorityInput() -> List[str]:
@@ -71,18 +72,13 @@ def CollectEmployeeData(use_priority: bool = True) -> Tuple[Dict[str, List[str]]
 def BuildSchedule(
     preferences: Dict[str, List[str]],
     priority_orders: Optional[Dict[str, List[str]]],
-) -> Dict[int, Dict[str, List[str]]]:
+) -> Dict[Tuple[int, str], List[str]]:
     """
-    Schedule logic:
-    - No employee > 1 shift per day.
-    - No employee > 5 days per week.
-    - At least 2 employees per shift per day; backfill with random employees if needed.
-    - Resolve conflicts: if preferred shift "full" (we treat as 2+ already assigned), assign to another shift.
+    This scheduler favors employee preferences early, then relaxes constraints
+    to guarantee minimum staffing coverage. Fairness is approximate, not optimal.
     """
-    # schedule[day_index][shift] = list of employee names
-    schedule: Dict[int, Dict[str, List[str]]] = {
-        day_index: {shift: [] for shift in SHIFTS} for day_index in range(7)
-    }
+    # schedule[(day, shift)] = list of employee names
+    schedule: Dict[Tuple[int, str], List[str]] = defaultdict(list)
     days_worked: Dict[str, int] = defaultdict(int)
     assigned_today: Dict[int, set] = {day_index: set() for day_index in range(7)}
 
@@ -97,8 +93,8 @@ def BuildSchedule(
         return True
 
     # First pass: assign by preference in rounds; at most one day per employee per round.
-    # Use 3 rounds so backfill has enough capacity to ensure at least 2 per shift on all days.
-    for round_index in range(3):
+    # Use MAX_ASSIGNMENT_PASSES rounds so backfill has enough capacity to ensure at least 2 per shift on all days.
+    for round_index in range(MAX_ASSIGNMENT_PASSES):
         assigned_this_round: set = set()
         for index, employee in enumerate(employees):
             if employee in assigned_this_round or days_worked[employee] >= MAX_DAYS_PER_EMPLOYEE:
@@ -110,20 +106,23 @@ def BuildSchedule(
                 preferred = preferences[employee][day]
                 if not CanAssign(employee, day, preferred):
                     continue
-                if len(schedule[day][preferred]) < 3:
-                    schedule[day][preferred].append(employee)
+                if len(schedule[(day, preferred)]) < 3:
+                    schedule[(day, preferred)].append(employee)
                     assigned_today[day].add(employee)
                     assigned_this_round.add(employee)
                     days_worked[employee] += 1
                     break
                 else:
                     # Conflict: assign to another shift same day (use priority order if available)
-                    order = (priority_orders.get(employee, []) if priority_orders else []) or [
-                        preferred
-                    ] + [shift_option for shift_option in SHIFTS if shift_option != preferred]
+                    if priority_orders:
+                        order = priority_orders.get(employee, [])
+                    else:
+                        order = []
+                    if not order:
+                        order = [preferred] + [s for s in SHIFTS if s != preferred]
                     for shift_option in order:
                         if shift_option != preferred and CanAssign(employee, day, shift_option):
-                            schedule[day][shift_option].append(employee)
+                            schedule[(day, shift_option)].append(employee)
                             assigned_today[day].add(employee)
                             assigned_this_round.add(employee)
                             days_worked[employee] += 1
@@ -135,7 +134,7 @@ def BuildSchedule(
     # Second pass: ensure at least MIN_EMPLOYEES_PER_SHIFT per shift per day
     for day in range(7):
         for shift in SHIFTS:
-            need = MIN_EMPLOYEES_PER_SHIFT - len(schedule[day][shift])
+            need = MIN_EMPLOYEES_PER_SHIFT - len(schedule[(day, shift)])
             if need <= 0:
                 continue
             candidates = [
@@ -146,7 +145,7 @@ def BuildSchedule(
             for employee in candidates:
                 if need <= 0:
                     break
-                schedule[day][shift].append(employee)
+                schedule[(day, shift)].append(employee)
                 assigned_today[day].add(employee)
                 days_worked[employee] += 1
                 need -= 1
@@ -154,7 +153,7 @@ def BuildSchedule(
     return schedule
 
 
-def PrintSchedule(schedule: Dict[int, Dict[str, List[str]]]) -> None:
+def PrintSchedule(schedule: Dict[Tuple[int, str], List[str]]) -> None:
     """Output the final weekly schedule in a readable format."""
     print("\n" + "=" * 70)
     print("WEEKLY EMPLOYEE SCHEDULE")
@@ -163,7 +162,7 @@ def PrintSchedule(schedule: Dict[int, Dict[str, List[str]]]) -> None:
         print(f"\n{DAYS[day]}:")
         print("-" * 40)
         for shift in SHIFTS:
-            names = schedule[day][shift]
+            names = schedule[(day, shift)]
             print(f"  {shift.capitalize():12} : {', '.join(names) if names else '(none)'}")
     print("\n" + "=" * 70)
 
