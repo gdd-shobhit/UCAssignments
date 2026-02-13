@@ -34,9 +34,10 @@ system.mem_ranges = [AddrRange("512MiB")]
 system.cpu = TimingSimpleCPU()
 
 # TLBs (Translation Lookaside Buffers) - Virtual Memory
-# entry_type required in some gem5 versions
 system.cpu.itb = X86TLB(size=64, entry_type="instruction")
-system.cpu.dtb = X86TLB(size=64, entry_type="data")   
+system.cpu.dtb = X86TLB(size=64, entry_type="data")
+system.cpu.mmu.itb = system.cpu.itb
+system.cpu.mmu.dtb = system.cpu.dtb
 
 # Caches
 system.cpu.icache = L1ICache()
@@ -79,6 +80,7 @@ system.cpu.createThreads()
 root = Root(full_system=False, system=system)
 m5.instantiate()
 
+print("[VM config] ITB size =", system.cpu.mmu.itb.size, "  DTB size =", system.cpu.mmu.dtb.size)
 print("Beginning simulation!")
 exit_event = m5.simulate()
 print(

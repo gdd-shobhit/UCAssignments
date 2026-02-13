@@ -3,8 +3,8 @@ import m5
 
 # L1 Cache Definitions
 class L1ICache(Cache):
-    size = "32KiB"
-    assoc = 2
+    size = "64KiB"
+    assoc = 4
     tag_latency = 2
     data_latency = 2
     response_latency = 2
@@ -12,8 +12,8 @@ class L1ICache(Cache):
     tgts_per_mshr = 20
 
 class L1DCache(Cache):
-    size = "32KiB"
-    assoc = 2
+    size = "64KiB"
+    assoc = 4
     tag_latency = 2
     data_latency = 2
     response_latency = 2
@@ -32,11 +32,6 @@ system.mem_ranges = [AddrRange("512MiB")]
 
 # CPU
 system.cpu = TimingSimpleCPU()
-
-# TLBs (Translation Lookaside Buffers) - Virtual Memory
-# entry_type required in some gem5 versions
-system.cpu.itb = X86TLB(size=64, entry_type="instruction")
-system.cpu.dtb = X86TLB(size=64, entry_type="data")   
 
 # Caches
 system.cpu.icache = L1ICache()
