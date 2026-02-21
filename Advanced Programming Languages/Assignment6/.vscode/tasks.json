@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Java",
+      "type": "shell",
+      "command": "javac",
+      "args": [
+        "-d", "out",
+        "Task.java", "TaskQueue.java", "Worker.java", "Main.java"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/java"
+      },
+      "group": "build"
+    },
+    {
+      "label": "Run Java",
+      "type": "shell",
+      "command": "java",
+      "args": ["-cp", "out", "Main"],
+      "options": {
+        "cwd": "${workspaceFolder}/java"
+      },
+      "dependsOn": "Build Java",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Run Go",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", "."],
+      "options": {
+        "cwd": "${workspaceFolder}/go"
+      },
+      "group": "test"
+    }
+  ]
+}
